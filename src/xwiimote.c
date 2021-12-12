@@ -44,6 +44,7 @@
 #include <xorgVersion.h>
 #include <xserver-properties.h>
 #include <xwiimote.h>
+#include <math.h>
 
 #define MIN_KEYCODE 8
 
@@ -452,7 +453,8 @@ static void xwiimote_accel(struct xwiimote_dev *dev, struct xwii_event *ev)
 
 static void xwiimote_ir(struct xwiimote_dev *dev, struct xwii_event *ev)
 {
-	struct xwii_event_abs *a, *b, *c, d;
+	struct xwii_event_abs *a, *b, *c, d, centre;
+	double cam_x, cam_y, sen_x, sen_y, sen_ax_x, sen_ax_y, sen_ay_x, sen_ay_y, axis_len;
 	int absolute, i, dists[6];
 
 	absolute = dev->motion == MOTION_ABS;
@@ -521,9 +523,28 @@ static void xwiimote_ir(struct xwiimote_dev *dev, struct xwii_event *ev)
 		dev->ir_ref_y = a->y;
 	}
 
-	/* Final point is the average of both points */
-	a->x = (a->x + b->x) / 2;
-	a->y = (a->y + b->y) / 2;
+	/* the centre of the sensor bar is the average of the two points */
+	centre = *a;
+	centre.x = (a->x + b->x) / 2;
+	centre.y = (a->y + b->y) / 2;
+
+	cam_x = (double)(511 - centre.x);
+	cam_y = (double)(511 - centre.y);
+	
+	sen_ax_x = (double)(a->x - centre.x);
+	sen_ax_y = (double)(a->y - centre.y);
+
+	sen_ay_x = -sen_ax_y;
+	sen_ay_y = sen_ax_x;
+
+	axis_len = sqrt(XWIIMOTE_DISTSQ(sen_ax_x, sen_ax_y, 0,0));
+
+	sen_x = ((cam_x * sen_ax_x) + (cam_y * sen_ax_y))/axis_len;
+	sen_y = ((cam_x * sen_ay_x) + (cam_y * sen_ay_y))/axis_len;
+
+	a->x = 511 + (int32_t)sen_x;
+	a->y = 511 + (int32_t)sen_y;
+
 
 	/* Start averaging if the location is consistant */
 	dev->ir_avg_x = (dev->ir_avg_x * dev->ir_avg_count + a->x) / (dev->ir_avg_count+1);
