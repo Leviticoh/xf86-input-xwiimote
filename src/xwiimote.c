@@ -451,6 +451,17 @@ static void xwiimote_accel(struct xwiimote_dev *dev, struct xwii_event *ev)
 	xf86PostMotionEvent(dev->info->dev, absolute, 0, 2, x, y);
 }
 
+static double clamp(double min, double max, double x)
+{
+	if(x <= min)
+		return min;
+	else if(x >= max)
+		return max;
+	else
+		return x;
+}
+
+
 static void xwiimote_ir(struct xwiimote_dev *dev, struct xwii_event *ev)
 {
 	struct xwii_event_abs *a, *b, *c, d, centre;
@@ -542,6 +553,8 @@ static void xwiimote_ir(struct xwiimote_dev *dev, struct xwii_event *ev)
 	sen_x = ((cam_x * sen_ax_x) + (cam_y * sen_ax_y))/axis_len;
 	sen_y = ((cam_x * sen_ay_x) + (cam_y * sen_ay_y))/axis_len;
 
+	sen_x = clamp(-511, 512, sen_x*1.5);
+	sen_y = clamp(-511, 512, sen_y*1.5);
 	a->x = 511 + (int32_t)sen_x;
 	a->y = 511 + (int32_t)sen_y;
 
